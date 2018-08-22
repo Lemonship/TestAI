@@ -9,7 +9,7 @@ EP_MAX = 1000
 EP_LEN = 200
 GAMMA = 0.9
 BATCH = 32
-GYMNAME = 'Pendulum-v0'
+GYM_NAME = 'Pendulum-v0'
 
 """ 
 METHOD = [
@@ -18,7 +18,7 @@ METHOD = [
 ][1]        # choose the method for optimization
  """
 
-env = gym.make(GYMNAME).unwrapped
+env = gym.make(GYM_NAME).unwrapped
 RL_Network = RL()
 all_episode_reward = []
 
@@ -27,7 +27,7 @@ for ep in range(EP_MAX):
     buffer_s, buffer_a, buffer_r = [], [], []
     episode_reward = 0
     for t in range(EP_LEN):    # in one episode
-        env.render()
+        #env.render()
         action = RL_Network.choose_action(state)
         state_new, reward, done, _ = env.step(action)
         buffer_s.append(state)
@@ -38,11 +38,11 @@ for ep in range(EP_MAX):
 
         # update RL_Network
         if (t+1) % BATCH == 0 or t == EP_LEN-1:
-            v_s_ = RL_Network.get_variable(state_new)
+            value_state_new = RL_Network.get_value(state_new)
             discounted_reward = []
-            for r in buffer_r[::-1]:
-                v_s_ = reward + GAMMA * v_s_
-                discounted_reward.append(v_s_)
+            for reward in buffer_r[::-1]:
+                value_state_new = reward + GAMMA * value_state_new
+                discounted_reward.append(value_state_new)
             discounted_reward.reverse()
 
             bs, ba, br = np.vstack(buffer_s), np.vstack(buffer_a), np.array(discounted_reward)[:, np.newaxis]
