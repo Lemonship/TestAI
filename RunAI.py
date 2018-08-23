@@ -11,13 +11,6 @@ GAMMA = 0.9
 BATCH = 32
 GYM_NAME = 'Pendulum-v0'
 
-""" 
-METHOD = [
-    dict(name='kl_pen', kl_target=0.01, lam=0.5),   # KL penalty
-    dict(name='clip', epsilon=0.2),                 # Clipped surrogate objective, find this is better
-][1]        # choose the method for optimization
- """
-
 env = gym.make(GYM_NAME).unwrapped
 RL_Network = RL()
 all_episode_reward = []

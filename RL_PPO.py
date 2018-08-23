@@ -7,11 +7,6 @@ gym 0.9.2
 import tensorflow as tf
 import numpy as np
 
-METHOD = [
-    dict(name='kl_pen', kl_target=0.01, lam=0.5),   # KL penalty
-    dict(name='clip', epsilon=0.2),                 # Clipped surrogate objective, find this is better
-][1]        # choose the method for optimization
-
 
 class RL(object):
 
@@ -22,14 +17,16 @@ class RL(object):
         A_UpdateStep = 10,
         C_UpdateStep = 10,
         S_Dimension = 3, 
-        A_Dimension = 1
+        A_Dimension = 1,
+        epsilon=0.2
         ):
         self.A_LearningRate = A_LearningRate
         self.C_LearningRate = C_LearningRate
         self.A_UpdateStep = A_UpdateStep 
         self.C_UpdateStep = C_UpdateStep 
         self.S_Dimension = S_Dimension 
-        self.A_Dimension = A_Dimension 
+        self.A_Dimension = A_Dimension
+        self.epsilon = epsilon
 
         self.sess = tf.Session()
         self.tfstate = tf.placeholder(tf.float32, [None, self.S_Dimension], 'state')
@@ -61,15 +58,9 @@ class RL(object):
                 # ratio = tf.exp(pi.log_prob(self.tfaction) - oldpi.log_prob(self.tfaction))
                 ratio = pi.prob(self.tfaction) / oldpi.prob(self.tfaction)
                 surr = ratio * self.tfadv
-            if METHOD['name'] == 'kl_pen':
-                self.tflambda = tf.placeholder(tf.float32, None, 'lambda')
-                kl = tf.distributions.kl_divergence(oldpi, pi)
-                self.kl_mean = tf.reduce_mean(kl)
-                self.aloss = -(tf.reduce_mean(surr - self.tflambda * kl))
-            else:   # clipping method, find this is better
-                self.aloss = -tf.reduce_mean(tf.minimum(
-                    surr,
-                    tf.clip_by_value(ratio, 1.-METHOD['epsilon'], 1.+METHOD['epsilon'])*self.tfadv))
+            self.aloss = -tf.reduce_mean(tf.minimum(
+                surr,
+                tf.clip_by_value(ratio, 1.-self.epsilon, 1.+self.epsilon)*self.tfadv))
             tf.summary.scalar('actorloss', self.aloss) 
 
         with tf.variable_scope('a-train'):
@@ -85,20 +76,7 @@ class RL(object):
         # adv = (adv - adv.mean())/(adv.std()+1e-6)     # sometimes helpful
 
         # update actor
-        if METHOD['name'] == 'kl_pen':
-            for _ in range(self.A_UpdateStep):
-                _, kl = self.sess.run(
-                    [self.atrain_op, self.kl_mean],
-                    {self.tfstate: state, self.tfaction: action, self.tfadv: adv, self.tflambda: METHOD['lam']})
-                if kl > 4*METHOD['kl_target']:  # this in in google's paper
-                    break
-            if kl < METHOD['kl_target'] / 1.5:  # adaptive lambda, this is in OpenAI's paper
-                METHOD['lam'] /= 2
-            elif kl > METHOD['kl_target'] * 1.5:
-                METHOD['lam'] *= 2
-            METHOD['lam'] = np.clip(METHOD['lam'], 1e-4, 10)    # sometimes explode, this clipping is my solution
-        else:   # clipping method, find this is better (OpenAI's paper)
-            [self.sess.run(self.atrain_op, {self.tfstate: state, self.tfaction: action, self.tfadv: adv}) for _ in range(self.A_UpdateStep)]
+        [self.sess.run(self.atrain_op, {self.tfstate: state, self.tfaction: action, self.tfadv: adv}) for _ in range(self.A_UpdateStep)]
 
         # update critic
         [self.sess.run(self.ctrain_op, {self.tfstate: state, self.discounted_reward: reward}) for _ in range(self.C_UpdateStep)]
