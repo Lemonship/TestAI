@@ -5,7 +5,7 @@ import gym
 from RL_PPO import RL
 
 
-EP_MAX = 1000
+EP_MAX = 10
 EP_LEN = 200
 GAMMA = 0.9
 BATCH = 32
